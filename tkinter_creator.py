@@ -2,13 +2,13 @@ import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
-import re
 
 
 def create_root(title, width, height):
 	root = tk.Tk()
+	width_screen = root.winfo_screenwidth()
 	root.title(title)
-	root.geometry(f"{width}x{height}")
+	root.geometry(f"{width}x{height}+{int((width_screen-width)/2)}+{0}")
 	return root
 
 

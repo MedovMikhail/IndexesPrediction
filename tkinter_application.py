@@ -30,6 +30,38 @@ INTERVALS = {
 	"3 месяца": "3mo"
 }
 
+SEASONAL = {
+	"Год": "year",
+	"Полгода": "half_year",
+	"Квартал": "quarter",
+	"Месяц": "mo"
+}
+
+SEASONAL_MONTH = {
+	"Месяц": "mo"
+}
+
+SEASONAL.update(SEASONAL_MONTH)
+
+
+def convert_seasonal_to_number(seasonal, interval):
+	year = 365
+	interval_scale = {
+		"1d": 1,
+		"1wk": 7,
+		"1mo": 30,
+		"3mo": 90
+	}
+	seasonal_scale = {
+		"year": year,
+		"half_year": int(year / 2),
+		"quarter": int(year / 4),
+		"mo": int(year / 12)
+	}
+
+	return int(seasonal_scale[seasonal] / interval_scale[interval])
+
+
 class Application:
 	def __init__(self):
 		self.root = tc.create_root("НИР_8 V1.0.0", WIDTH, HEIGHT)
@@ -44,10 +76,13 @@ class Application:
 		self.index_string_var = tc.add_string_var(list(INDEX_NAMES.keys())[0])
 		self.period_string_var = tc.add_string_var(list(PERIODS.keys())[0])
 		self.interval_string_var = tc.add_string_var(list(INTERVALS.keys())[0])
+		self.seasonal_string_var = tc.add_string_var(list(SEASONAL.keys())[0])
 		self.type_learning_string_var = tc.add_string_var("auto")
 		self.p_string_var = tc.add_string_var("0")
 		self.q_string_var = tc.add_string_var("0")
 		self.d_string_var = tc.add_string_var("0")
+
+		self.selected_interval = ""
 
 		self.upbar()
 
@@ -96,6 +131,12 @@ class Application:
 		company_value = INDEX_NAMES.get(company_name)
 		period_value = PERIODS.get(period_name)
 		interval_value = INTERVALS.get(interval_name)
+		self.selected_interval = interval_name
+
+		if "Месяц" not in list(SEASONAL.keys()):
+			SEASONAL.update(SEASONAL_MONTH)
+		if interval_value == "3mo":
+			SEASONAL.pop("Месяц")
 
 		for widget in self.arima_frame.winfo_children():
 			widget.destroy()
@@ -109,13 +150,17 @@ class Application:
 		data_processor = DataProcessor(indexes.data['Close'])
 		self.processed_data = data_processor.get_processed_data()
 		tc.add_graphic("Преобразованные данные", company_name, self.processed_data, self.arima_frame)
-
 		self.prepare_to_learning()
 
 	def prepare_to_learning(self):
-		#Выбор способа задания параметров
 		self.type_learning_frame = tc.add_frame(self.arima_frame)
 		type_learning_frame_static = tc.add_frame(self.type_learning_frame)
+
+		#Сезонность
+		tc.add_label("Выберите сезонность:", type_learning_frame_static, 18).pack(pady=10)
+		tc.add_combobox(list(SEASONAL.keys()), type_learning_frame_static, self.seasonal_string_var).pack()
+
+		#Выбор способа задания параметров
 		tc.add_label("Выберите способ задания параметров:", type_learning_frame_static, 18).pack(pady=10)
 		radio1 = tc.add_radiobutton(type_learning_frame_static, "Автоматически", "auto", self.type_learning_string_var)
 		radio2 = tc.add_radiobutton(type_learning_frame_static, "Вручную", "manually", self.type_learning_string_var)
@@ -126,9 +171,9 @@ class Application:
 		radio2.pack(side="right")
 
 		type_learning_frame_static.pack()
-		self.type_learning_frame.pack(pady=15)
+		self.type_learning_frame.pack(pady=15, ipadx=20, ipady=10)
 
-		self.predict_button = tc.add_button(self.arima_frame, "Обучить модель", 14, self.start_prediction)
+		self.predict_button = tc.add_button(self.arima_frame, "Обучить модель", 14, self.start_learning)
 		self.predict_button.pack()
 
 		self.update_canvas()
@@ -175,14 +220,17 @@ class Application:
 			count += 1
 			time.sleep(0.5)
 
-	def start_prediction(self):
-		thread_prediction = threading.Thread(target=self.learning)
-		thread_anim_load = threading.Thread(target=self.anim_loading)
-
-		self.start_processing(self.predict_button, "Обучение")
-
-		thread_prediction.start()
-		thread_anim_load.start()
+	def start_learning(self):
+		seasonal_param = SEASONAL[self.seasonal_string_var.get()]
+		interval_param = INTERVALS[self.selected_interval]
+		print(convert_seasonal_to_number(seasonal_param, interval_param))
+		# thread_prediction = threading.Thread(target=self.learning)
+		# thread_anim_load = threading.Thread(target=self.anim_loading)
+		#
+		# self.start_processing(self.predict_button, "Обучение")
+		#
+		# thread_prediction.start()
+		# thread_anim_load.start()
 
 	def start_data(self):
 		thread_load_data = threading.Thread(target=self.start_graphics)
@@ -214,10 +262,43 @@ class Application:
 			pass
 		if self.type_learning_string_var.get() == "manually":
 			frame = tc.add_frame(self.type_learning_frame, name="learning_type")
-			input_p = tc.add_input_number(frame, self.p_string_var)
-			input_q = tc.add_input_number(frame, self.q_string_var)
-			input_d = tc.add_input_number(frame, self.d_string_var)
-			input_p.grid(row=0, column=0)
-			input_q.grid(row=0, column=1)
-			input_d.grid(row=0, column=2)
+
+			label_params = ["p", "q", "d"]
+			string_vars = [self.p_string_var, self.q_string_var, self.d_string_var]
+
+			for i in range(3):
+				param_frame = tc.add_frame(frame)
+				param_label = tc.add_label(f"Введите параметр {label_params[i]}:", param_frame)
+				param_input = tc.add_input_number(param_frame, string_vars[i])
+				param_label.grid(row=0, column=0, padx=10)
+				param_input.grid(row=0, column=1)
+				param_frame.grid(row=0, column=i, ipady=10, ipadx=15)
+
+			# p_frame = tc.add_frame(frame, relief="sunken")
+			# label_p = tc.add_label("Введите параметр p:", p_frame)
+			# input_p = tc.add_input_number(p_frame, self.p_string_var)
+			#
+			# q_frame = tc.add_frame(frame, relief="sunken")
+			# label_q = tc.add_label("Введите параметр q:", frame)
+			# input_q = tc.add_input_number(q_frame, self.q_string_var)
+			#
+			# d_frame = tc.add_frame(frame, relief="sunken")
+			# label_d = tc.add_label("Введите параметр d:", frame)
+			# input_d = tc.add_input_number(d_frame, self.d_string_var)
+
+			# label_p.grid(row=0, column=0)
+			# input_p.grid(row=0, column=1)
+			#
+			# label_q.grid(row=0, column=0)
+			# input_q.grid(row=0, column=1)
+			#
+			# label_d.grid(row=0, column=0)
+			# input_d.grid(row=0, column=1)
+			#
+			# p_frame.grid(row=0, column=0, ipady=10, ipadx=15)
+			# q_frame.grid(row=0, column=1, ipady=10, ipadx=15)
+			# d_frame.grid(row=0, column=2, ipady=10, ipadx=15)
+
 			frame.pack(side="bottom")
+
+			self.update_canvas()
