@@ -1,7 +1,7 @@
 import threading
 import time
 import tkinter_creator as tc
-from arimaModel import SarimaxModel
+from sarimaModel import SarimaxModel
 from data_processor import DataProcessor
 from indexes import Indexes
 
@@ -40,8 +40,6 @@ SEASONAL = {
 SEASONAL_MONTH = {
 	"Месяц": "mo"
 }
-
-SEASONAL.update(SEASONAL_MONTH)
 
 
 def convert_seasonal_to_number(seasonal, interval):
@@ -180,19 +178,39 @@ class Application:
 		self.end_processing(self.start_predict_btn)
 
 	def learning(self):
-		sarimaxModel = SarimaxModel(self.processed_data, self.data_params, 30, 15, 30)
+
+		try:
+			for widget in self.arima_frame.nametowidget(".metric").winfo_children():
+				widget.destroy()
+			for widget in self.arima_frame.nametowidget(".learning_frame").winfo_children():
+				widget.destroy()
+		except:
+			pass
+
+		is_automatic = self.type_learning_string_var.get() == "auto"
+
+		seasonal_param = SEASONAL[self.seasonal_string_var.get()]
+		interval_param = INTERVALS[self.selected_interval]
+		seasonal_cycle = convert_seasonal_to_number(seasonal_param, interval_param)
+		sarimaxModel = SarimaxModel(self.processed_data, self.data_params, seasonal_cycle, is_automatic, 5, 30)
+
+		if not is_automatic:
+			sarimaxModel.training(self.get_params())
+		else: sarimaxModel.training()
+
 		predict = sarimaxModel.preds
+		learning_graphic_frame = tc.add_frame(self.arima_frame, name="learning_frame")
 		canvas_graphic = tc.add_concat_graphic(
 			"Проверка обученной модели",
 			self.index_string_var.get(),
 			self.processed_data[-100:],
 			predict,
-			self.arima_frame,
+			learning_graphic_frame,
 			"Реальные данные",
 			"Спрогнозированные данные"
 		)
-
-		metric_frame = tc.add_frame(self.arima_frame, 1, "solid")
+		learning_graphic_frame.pack()
+		metric_frame = tc.add_frame(self.arima_frame, 1, "solid", name="metric")
 		metric_frame_elements = [
 			tc.add_label("Метрики качества модели:", metric_frame, 18),
 			tc.add_label(f"Среднеквадратичная ошибка: {sarimaxModel.mse:.3f}", metric_frame, 16),
@@ -221,16 +239,13 @@ class Application:
 			time.sleep(0.5)
 
 	def start_learning(self):
-		seasonal_param = SEASONAL[self.seasonal_string_var.get()]
-		interval_param = INTERVALS[self.selected_interval]
-		print(convert_seasonal_to_number(seasonal_param, interval_param))
-		# thread_prediction = threading.Thread(target=self.learning)
-		# thread_anim_load = threading.Thread(target=self.anim_loading)
-		#
-		# self.start_processing(self.predict_button, "Обучение")
-		#
-		# thread_prediction.start()
-		# thread_anim_load.start()
+		thread_prediction = threading.Thread(target=self.learning)
+		thread_anim_load = threading.Thread(target=self.anim_loading)
+
+		self.start_processing(self.predict_button, "Обучение")
+
+		thread_prediction.start()
+		thread_anim_load.start()
 
 	def start_data(self):
 		thread_load_data = threading.Thread(target=self.start_graphics)
@@ -251,6 +266,9 @@ class Application:
 		self.loading_label = None
 		button.configure(state=['normal'])
 
+	def get_params(self):
+		return [int(self.p_string_var.get()), int(self.q_string_var.get()), int(self.d_string_var.get())]
+
 	def update_canvas(self):
 		self.canvas.update_idletasks()
 		self.canvas.configure(scrollregion=self.canvas.bbox("all"))
@@ -270,34 +288,10 @@ class Application:
 				param_frame = tc.add_frame(frame)
 				param_label = tc.add_label(f"Введите параметр {label_params[i]}:", param_frame)
 				param_input = tc.add_input_number(param_frame, string_vars[i])
+				param_input.configure(width=4)
 				param_label.grid(row=0, column=0, padx=10)
 				param_input.grid(row=0, column=1)
 				param_frame.grid(row=0, column=i, ipady=10, ipadx=15)
-
-			# p_frame = tc.add_frame(frame, relief="sunken")
-			# label_p = tc.add_label("Введите параметр p:", p_frame)
-			# input_p = tc.add_input_number(p_frame, self.p_string_var)
-			#
-			# q_frame = tc.add_frame(frame, relief="sunken")
-			# label_q = tc.add_label("Введите параметр q:", frame)
-			# input_q = tc.add_input_number(q_frame, self.q_string_var)
-			#
-			# d_frame = tc.add_frame(frame, relief="sunken")
-			# label_d = tc.add_label("Введите параметр d:", frame)
-			# input_d = tc.add_input_number(d_frame, self.d_string_var)
-
-			# label_p.grid(row=0, column=0)
-			# input_p.grid(row=0, column=1)
-			#
-			# label_q.grid(row=0, column=0)
-			# input_q.grid(row=0, column=1)
-			#
-			# label_d.grid(row=0, column=0)
-			# input_d.grid(row=0, column=1)
-			#
-			# p_frame.grid(row=0, column=0, ipady=10, ipadx=15)
-			# q_frame.grid(row=0, column=1, ipady=10, ipadx=15)
-			# d_frame.grid(row=0, column=2, ipady=10, ipadx=15)
 
 			frame.pack(side="bottom")
 

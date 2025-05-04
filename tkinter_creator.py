@@ -146,8 +146,8 @@ def check_key(newval):
 		return True
 	try:
 		newval = int(newval)
-		if newval >= 0:
+		if 0 <= newval < 10:
 			return True
 	except:
 		return False
-	return True
+	return False
