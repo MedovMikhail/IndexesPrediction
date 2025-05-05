@@ -1,4 +1,5 @@
 import itertools
+import math
 
 import json_service
 import numpy as np
@@ -99,8 +100,13 @@ class SarimaxModel:
 		preds = pd.DataFrame()
 		predicted = pred_future.predicted_mean
 
-		self.mse = mean_squared_error(self.full_data_set.values[-self.offset:-(self.offset-self.steps)], predicted)
-		self.mae = mean_absolute_error(self.full_data_set.values[-self.offset:-(self.offset-self.steps)], predicted)
+		origin_data = []
+		for val in self.full_data_set.values[-self.offset:-(self.offset-self.steps)]:
+			origin_data.append(val[0])
+		pred_data = predicted.tolist()
+
+		self.mse = get_mse(origin_data, pred_data)
+		self.mae = get_mae(origin_data, pred_data)
 
 		# values = [self.data_set.values[-2], self.data_set.values[-1]]
 		values = [self.data_set.values[-1]]
@@ -120,3 +126,35 @@ class SarimaxModel:
 		for i in range(len(preds["Close"].values)):
 			preds["Close"].values[i] = int(preds["Close"].values[i])
 		return preds
+
+
+def get_mse(origin_data, pred_data):
+	len_origin = len(origin_data)
+	if len_origin == len(pred_data):
+		mse_values = []
+		error = 0
+		for i in range(len_origin):
+			diff_sum = 0
+			for j in range(i+1):
+				diff_sum += math.pow(origin_data[j] - pred_data[j], 2)
+			error = diff_sum/(i+1)
+			mse_values.append(error)
+		return [mse_values, error]
+	else:
+		return None
+
+
+def get_mae(origin_data, pred_data):
+	len_origin = len(origin_data)
+	if len_origin == len(pred_data):
+		mse_values = []
+		error = 0
+		for i in range(len_origin):
+			diff_sum = 0
+			for j in range(i+1):
+				diff_sum += abs(origin_data[j] - pred_data[j])
+			error = diff_sum/(i+1)
+			mse_values.append(error)
+		return [mse_values, error]
+	else:
+		return None

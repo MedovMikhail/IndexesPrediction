@@ -184,6 +184,8 @@ class Application:
 				widget.destroy()
 			for widget in self.arima_frame.nametowidget(".learning_frame").winfo_children():
 				widget.destroy()
+			for widget in self.arima_frame.nametowidget(".errors_frame").winfo_children():
+				widget.destroy()
 		except:
 			pass
 
@@ -192,7 +194,9 @@ class Application:
 		seasonal_param = SEASONAL[self.seasonal_string_var.get()]
 		interval_param = INTERVALS[self.selected_interval]
 		seasonal_cycle = convert_seasonal_to_number(seasonal_param, interval_param)
-		sarimaxModel = SarimaxModel(self.processed_data, self.data_params, seasonal_cycle, is_automatic, 5, 30)
+		steps = 15
+		offset = int(len(self.processed_data)*0.2)
+		sarimaxModel = SarimaxModel(self.processed_data, self.data_params, seasonal_cycle, is_automatic, steps, offset)
 
 		if not is_automatic:
 			sarimaxModel.training(self.get_params())
@@ -203,7 +207,7 @@ class Application:
 		canvas_graphic = tc.add_concat_graphic(
 			"Проверка обученной модели",
 			self.index_string_var.get(),
-			self.processed_data[-100:],
+			self.processed_data[-(offset+int(offset*0.5)):-(offset-int(offset*0.5))],
 			predict,
 			learning_graphic_frame,
 			"Реальные данные",
@@ -211,13 +215,27 @@ class Application:
 		)
 		learning_graphic_frame.pack()
 		metric_frame = tc.add_frame(self.arima_frame, 1, "solid", name="metric")
+		mse = sarimaxModel.mse
+		mae = sarimaxModel.mae
 		metric_frame_elements = [
 			tc.add_label("Метрики качества модели:", metric_frame, 18),
-			tc.add_label(f"Среднеквадратичная ошибка: {sarimaxModel.mse:.3f}", metric_frame, 16),
-			tc.add_label(f"Средне абсолютная ошибка: {sarimaxModel.mae:.3f}", metric_frame, 16)
+			tc.add_label(f"Среднеквадратичная ошибка: {mse[1]:.3f}", metric_frame, 16),
+			tc.add_label(f"Средняя абсолютная ошибка: {mae[1]:.3f}", metric_frame, 16)
 		]
 		tc.pack_elements(metric_frame_elements, "w")
 		metric_frame.pack(ipadx=int((canvas_graphic.get_tk_widget().winfo_reqwidth()- metric_frame.winfo_reqwidth())/2), ipady=10)
+
+		errors_graphic_frame = tc.add_frame(self.arima_frame, name="errors_frame")
+		tc.add_concat_graphic(
+			"Изменение функций ошибок",
+			"MSE и MAE",
+			mse[0],
+			mae[0],
+			errors_graphic_frame,
+			"mse",
+			"mae"
+		)
+		errors_graphic_frame.pack()
 
 		self.update_canvas()
 		self.end_processing(self.predict_button)
