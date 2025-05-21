@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class DataProcessor:
 	mean = 0
 	data = []
@@ -24,6 +27,16 @@ class DataProcessor:
 		return rate
 
 	def get_processed_data(self):
-		for i in range(len(self.data.values)):
-			self.data.values[i] = self.define_diff_rate(self.data.values[i])
-		return self.data
+		values = []
+		for el in self.data.values:
+			values.append(self.define_diff_rate(el))
+		data = pd.DataFrame()
+		data['Close'] = values
+		data["Date"] = self.data.reset_index()['Date'].values
+		data.set_index('Date', inplace=True)
+		return data
+
+	def reverse_scaling(self, data):
+		for i in range(len(data)):
+			data[i] = self.mean + (data[i] - 100) * self.scale
+		return data
