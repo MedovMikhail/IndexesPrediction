@@ -196,6 +196,8 @@ class Application:
 				widget.destroy()
 			for widget in self.sarima_frame.nametowidget(".errors_frame").winfo_children():
 				widget.destroy()
+			for widget in self.sarima_frame.nametowidget(".predict_button_sarima").winfo_children():
+				widget.destroy()
 			for widget in self.sarima_frame.nametowidget(".predict_forecast_frame").winfo_children():
 				widget.destroy()
 		except:
@@ -226,7 +228,7 @@ class Application:
 		predict = self.sarima_model.get_predict_for_training()
 		self.data_processor.reverse_scaling(predict.values)
 		learning_graphic_frame = self.tc.add_frame(self.sarima_frame, name="learning_predicted_frame")
-		self.tc.add_concat_graphic(
+		self.tc.add_concat_graphic_with_dot(
 			"Проверка обученной модели",
 			self.index_string_var.get(),
 			self.data_set,
@@ -234,6 +236,7 @@ class Application:
 			learning_graphic_frame,
 			"Реальные данные",
 			"Спрогнозированные данные",
+			offset,
 			(7,4)
 		)
 		learning_graphic_frame.pack()
@@ -253,51 +256,55 @@ class Application:
 		self.tc.pack_elements(metric_frame_elements, "w")
 		metric_frame.pack()
 
-		predict = self.sarima_model.get_forecast_for_training()
-		self.data_processor.reverse_scaling(predict.values)
-		predict.values[0] = self.data_set.values[-offset - 1]
-		learning_graphic_frame = self.tc.add_frame(self.sarima_frame, name="learning_forecast_frame")
-		self.tc.add_concat_graphic(
-			"Попытка прогноза от прошлого значения",
-			self.index_string_var.get(),
-			self.data_set[-(offset + left_offset):-(offset - right_offset)],
-			predict,
-			learning_graphic_frame,
-			"Реальные данные",
-			"Спрогнозированные данные",
-			(7, 4)
+		# predict = self.sarima_model.get_forecast_for_training()
+		# self.data_processor.reverse_scaling(predict.values)
+		# predict.values[0] = self.data_set.values[-offset - 1]
+		# learning_graphic_frame = self.tc.add_frame(self.sarima_frame, name="learning_forecast_frame")
+		# self.tc.add_concat_graphic(
+		# 	"Попытка прогноза от прошлого значения",
+		# 	self.index_string_var.get(),
+		# 	self.data_set[-(offset + left_offset):-(offset - right_offset)],
+		# 	predict,
+		# 	learning_graphic_frame,
+		# 	"Реальные данные",
+		# 	"Спрогнозированные данные",
+		# 	(7, 4)
+		# )
+		# learning_graphic_frame.pack()
+		#
+		# metric_frame = self.tc.add_frame(self.sarima_frame, 1, "solid", name="learning_metric_forecast")
+		# predict_to_metrics = predict.values[1:]
+		# data_set_to_metrics = self.data_set.values[-offset:-offset+steps]
+		# mse = get_mse(data_set_to_metrics, predict_to_metrics)
+		# mae = get_mae(data_set_to_metrics, predict_to_metrics)
+		# mape = get_mape(data_set_to_metrics, predict_to_metrics)
+		# metric_frame_elements = [
+		# 	self.tc.add_label("Метрики качества модели:", metric_frame, 18),
+		# 	self.tc.add_label(f"Среднеквадратичная ошибка: {mse[1]:.3f}", metric_frame, 16),
+		# 	self.tc.add_label(f"Средняя абсолютная ошибка: {mae[1][0]:.3f}", metric_frame, 16),
+		# 	self.tc.add_label(f"Средняя абсолютная ошибка в процентах: {mape[1][0]:.3f}", metric_frame, 16)
+		# ]
+		# self.tc.pack_elements(metric_frame_elements, "w")
+		# metric_frame.pack()
+		#
+		# errors_graphic_frame = self.tc.add_frame(self.sarima_frame, name="errors_frame")
+		# self.tc.add_concat_graphic(
+		# 	"Изменение функций ошибок",
+		# 	"MSE и MAE",
+		# 	mse[0],
+		# 	mae[0],
+		# 	errors_graphic_frame,
+		# 	"mse",
+		# 	"mae",
+		# 	(7, 4)
+		# )
+		# errors_graphic_frame.pack()
+
+		self.predict_button_sarima = self.tc.add_button(
+			self.sarima_frame, "Сделать прогноз",
+			14, self.start_prediction_sarima,
+			"predict_button_sarima"
 		)
-		learning_graphic_frame.pack()
-
-		metric_frame = self.tc.add_frame(self.sarima_frame, 1, "solid", name="learning_metric_forecast")
-		predict_to_metrics = predict.values[1:]
-		data_set_to_metrics = self.data_set.values[-offset:-offset+steps]
-		mse = get_mse(data_set_to_metrics, predict_to_metrics)
-		mae = get_mae(data_set_to_metrics, predict_to_metrics)
-		mape = get_mape(data_set_to_metrics, predict_to_metrics)
-		metric_frame_elements = [
-			self.tc.add_label("Метрики качества модели:", metric_frame, 18),
-			self.tc.add_label(f"Среднеквадратичная ошибка: {mse[1]:.3f}", metric_frame, 16),
-			self.tc.add_label(f"Средняя абсолютная ошибка: {mae[1][0]:.3f}", metric_frame, 16),
-			self.tc.add_label(f"Средняя абсолютная ошибка в процентах: {mape[1][0]:.3f}", metric_frame, 16)
-		]
-		self.tc.pack_elements(metric_frame_elements, "w")
-		metric_frame.pack()
-
-		errors_graphic_frame = self.tc.add_frame(self.sarima_frame, name="errors_frame")
-		self.tc.add_concat_graphic(
-			"Изменение функций ошибок",
-			"MSE и MAE",
-			mse[0],
-			mae[0],
-			errors_graphic_frame,
-			"mse",
-			"mae",
-			(7, 4)
-		)
-		errors_graphic_frame.pack()
-
-		self.predict_button_sarima = self.tc.add_button(self.sarima_frame, "Сделать прогноз", 14, self.start_prediction_sarima)
 		self.predict_button_sarima.pack()
 
 		self.update_canvas()
@@ -315,7 +322,9 @@ class Application:
 				widget.destroy()
 			for widget in self.lstm_frame.nametowidget(".errors_frame").winfo_children():
 				widget.destroy()
-			for widget in self.sarima_frame.nametowidget(".predict_forecast_frame").winfo_children():
+			for widget in self.lstm_frame.nametowidget(".predict_button_lstm").winfo_children():
+				widget.destroy()
+			for widget in self.lstm_frame.nametowidget(".predict_forecast_frame").winfo_children():
 				widget.destroy()
 		except:
 			pass
@@ -336,7 +345,7 @@ class Application:
 		predict = self.lstm_model.get_predict_learning()
 		self.data_processor.reverse_scaling(predict.values)
 		learning_graphic_frame = self.tc.add_frame(self.lstm_frame, name="learning_predict_frame")
-		canvas_graphic = self.tc.add_concat_graphic(
+		canvas_graphic = self.tc.add_concat_graphic_with_dot(
 			"Проверка обученной модели",
 			self.index_string_var.get(),
 			self.data_set,
@@ -344,6 +353,7 @@ class Application:
 			learning_graphic_frame,
 			"Реальные данные",
 			"Спрогнозированные данные",
+			offset,
 			(7, 4)
 		)
 		learning_graphic_frame.pack()
@@ -362,50 +372,54 @@ class Application:
 		self.tc.pack_elements(metric_frame_elements, "w")
 		metric_frame.pack()
 
-		predict = self.lstm_model.get_forecast_learning()
-		self.data_processor.reverse_scaling(predict.values)
-		predict.values[0] = self.data_set.values[-offset-1]
-		learning_graphic_frame = self.tc.add_frame(self.lstm_frame, name="learning_forecast_frame")
-		canvas_graphic = self.tc.add_concat_graphic(
-			"Проверка обученной модели",
-			self.index_string_var.get(),
-			self.data_set[-(offset+left_offset):-(offset-right_offset)],
-			predict,
-			learning_graphic_frame,
-			"Реальные данные",
-			"Спрогнозированные данные",
-			(7,4)
-		)
-		learning_graphic_frame.pack()
-		metric_frame = self.tc.add_frame(self.lstm_frame, 1, "solid", name="forecast_metric")
-		predict_to_metrics = predict.values[1:]
-		data_set_to_metrics = self.data_set.values[-offset:-offset+steps]
-		mse = get_mse(data_set_to_metrics, predict_to_metrics)
-		mae = get_mae(data_set_to_metrics, predict_to_metrics)
-		mape = get_mape(data_set_to_metrics, predict_to_metrics)
-		metric_frame_elements = [
-			self.tc.add_label("Метрики качества модели:", metric_frame, 18),
-			self.tc.add_label(f"Среднеквадратичная ошибка: {mse[1]:.3f}", metric_frame, 16),
-			self.tc.add_label(f"Средняя абсолютная ошибка: {mae[1][0][0]:.3f}", metric_frame, 16),
-			self.tc.add_label(f"Средняя абсолютная ошибка в процентах: {mape[1][0][0]:.3f}", metric_frame, 16)
-		]
-		self.tc.pack_elements(metric_frame_elements, "w")
-		metric_frame.pack()
+		# predict = self.lstm_model.get_forecast_learning()
+		# self.data_processor.reverse_scaling(predict.values)
+		# predict.values[0] = self.data_set.values[-offset-1]
+		# learning_graphic_frame = self.tc.add_frame(self.lstm_frame, name="learning_forecast_frame")
+		# canvas_graphic = self.tc.add_concat_graphic(
+		# 	"Проверка обученной модели",
+		# 	self.index_string_var.get(),
+		# 	self.data_set[-(offset+left_offset):-(offset-right_offset)],
+		# 	predict,
+		# 	learning_graphic_frame,
+		# 	"Реальные данные",
+		# 	"Спрогнозированные данные",
+		# 	(7,4)
+		# )
+		# learning_graphic_frame.pack()
+		# metric_frame = self.tc.add_frame(self.lstm_frame, 1, "solid", name="forecast_metric")
+		# predict_to_metrics = predict.values[1:]
+		# data_set_to_metrics = self.data_set.values[-offset:-offset+steps]
+		# mse = get_mse(data_set_to_metrics, predict_to_metrics)
+		# mae = get_mae(data_set_to_metrics, predict_to_metrics)
+		# mape = get_mape(data_set_to_metrics, predict_to_metrics)
+		# metric_frame_elements = [
+		# 	self.tc.add_label("Метрики качества модели:", metric_frame, 18),
+		# 	self.tc.add_label(f"Среднеквадратичная ошибка: {mse[1]:.3f}", metric_frame, 16),
+		# 	self.tc.add_label(f"Средняя абсолютная ошибка: {mae[1][0][0]:.3f}", metric_frame, 16),
+		# 	self.tc.add_label(f"Средняя абсолютная ошибка в процентах: {mape[1][0][0]:.3f}", metric_frame, 16)
+		# ]
+		# self.tc.pack_elements(metric_frame_elements, "w")
+		# metric_frame.pack()
+		#
+		# errors_graphic_frame = self.tc.add_frame(self.lstm_frame, name="errors_frame")
+		# self.tc.add_concat_graphic(
+		# 	"Изменение функций ошибок",
+		# 	"MSE и MAE",
+		# 	mse[0],
+		# 	mae[0],
+		# 	errors_graphic_frame,
+		# 	"mse",
+		# 	"mae",
+		# 	(7, 4)
+		# )
+		# errors_graphic_frame.pack()
 
-		errors_graphic_frame = self.tc.add_frame(self.lstm_frame, name="errors_frame")
-		self.tc.add_concat_graphic(
-			"Изменение функций ошибок",
-			"MSE и MAE",
-			mse[0],
-			mae[0],
-			errors_graphic_frame,
-			"mse",
-			"mae",
-			(7, 4)
+		self.predict_button_lstm = self.tc.add_button(
+			self.lstm_frame, "Сделать прогноз",
+			14, self.start_prediction_lstm,
+			"predict_button_lstm"
 		)
-		errors_graphic_frame.pack()
-
-		self.predict_button_lstm = self.tc.add_button(self.lstm_frame, "Сделать прогноз", 14, self.start_prediction_lstm)
 		self.predict_button_lstm.pack()
 
 		self.update_canvas()
@@ -418,7 +432,6 @@ class Application:
 		except:
 			pass
 
-		steps = 10
 		offset = 0
 
 		left_offset = 50

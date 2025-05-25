@@ -58,9 +58,12 @@ class SarimaxModel:
 		return [params, seasonal_param]
 
 	def search_optimal_sarima(self, time_series):
-		order_vals = diff_vals = ma_vals = range(0, 2)
+		diff_val, diff_data = self.search_d()
+		order_vals = ma_vals = range(0, 2)
+		diff_vals = [diff_val]
+		seasonal_diff_val = 1
 		pdq_combinations = list(itertools.product(order_vals, diff_vals, ma_vals))
-		seasonal_combinations = [(combo[0], combo[1], combo[2], self.seasonal_cycle_length) for combo in
+		seasonal_combinations = [(combo[0], seasonal_diff_val, combo[2], self.seasonal_cycle_length) for combo in
 									 pdq_combinations]
 		print(seasonal_combinations)
 		smallest_aic = float("inf")
@@ -115,16 +118,16 @@ class SarimaxModel:
 		data.plot(figsize=(12, 6))
 		d = 0
 		while p_value > 0.05 and d < 4:
-			data = data.diff(periods=1).dropna()
+			data = data.diff(periods=self.seasonal_cycle_length).dropna()
 			result = adfuller(data, maxlag=self.seasonal_cycle_length)
 			p_value = result[1]
 			d += 1
 		return d
 
 	def get_predict_for_training(self):
-		self.model = SARIMAX(self.full_data_set, order=self.arima_params, seasonal_order=self.sarima_params)
+		self.model = SARIMAX(self.data_set, order=self.arima_params, seasonal_order=self.sarima_params)
 		self.model = self.model.fit()
-		pred_future = self.model.get_prediction(start=1, end=len(self.full_data_set.values))
+		pred_future = self.model.get_prediction(start=1, end=len(self.full_data_set.values), dynamic=len(self.data_set))
 		predicted = pred_future.predicted_mean
 		preds = pd.DataFrame()
 
@@ -149,6 +152,8 @@ class SarimaxModel:
 		return preds
 
 	def get_forecast_for_predict(self):
+		self.model = SARIMAX(self.full_data_set, order=self.arima_params, seasonal_order=self.sarima_params)
+		self.model = self.model.fit()
 		pred_future = self.model.get_forecast(steps=self.steps)
 		preds = pd.DataFrame()
 		predicted = pred_future.predicted_mean

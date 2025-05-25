@@ -41,6 +41,26 @@ class TkinterCreator:
 		sub_root.pack(pady=20)
 		return canvas_graphic
 
+	def add_concat_graphic_with_dot(self, name, title, data1, data2, root, label_text1, label_text2, dot_place, size=(7, 4)):
+		sub_root = self.add_frame(root)
+
+		self.add_label(name, sub_root, 18).pack(pady=5)
+		f = Figure(figsize=size, dpi=100)
+		a = f.add_subplot(111)
+		a.set_title(title)
+		a.plot(data1, label=label_text1, lw=3)
+		a.plot(data2, label=label_text2)
+		a.plot(
+			data1.reset_index()['Date'].values[-dot_place], data1.values[-dot_place], marker='o',
+			   	color='red', label='Начало динамического прогноза'
+		)
+		a.legend()
+		canvas_graphic = FigureCanvasTkAgg(f, sub_root)
+		canvas_graphic.get_tk_widget().pack()
+
+		sub_root.pack(pady=20)
+		return canvas_graphic
+
 	def add_label(self, text, root, font_size=14, background=None):
 		if background is not None:
 			return ttk.Label(master=root, text=text, font=("Times New Roman", font_size), background=background)
@@ -94,14 +114,15 @@ class TkinterCreator:
 		check = (root.register(self.check_key), "%P")
 		return ttk.Entry(master=root, textvariable=string_var, validate="key", validatecommand=check)
 
-	def add_button(self, root, text, font_size, command):
+	def add_button(self, root, text, font_size, command, name=None):
 		return tk.Button(
 			master=root,
 			text=text,
 			font=("Times New Roman", font_size),
 			command=command,
 			background="white",
-			borderwidth=2
+			borderwidth=2,
+			name=name
 		)
 
 	def add_canvas(self, root):

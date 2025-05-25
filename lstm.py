@@ -26,13 +26,14 @@ class LSTMNetwork:
     def __init__(self, data_set, data_params, steps, offset=0):
         self.full_data_set = data_set
         self.data_len = len(data_set)
-        self.data_set = data_set[:-offset]
+        self.data_params = data_params
+        self.train_set = data_set[:-offset]
         self.steps = steps
         self.offset = offset
         self.scaler = MinMaxScaler(feature_range=(0, 1))
         self.full_data_set_scaled = self.scaler.fit_transform(self.full_data_set.values)
-        self.data_set_scaled = self.full_data_set_scaled[:-offset]
-        self.train_len = len(self.data_set_scaled)
+        self.train_set_scaled = self.full_data_set_scaled[:-offset]
+        self.train_len = len(self.train_set_scaled)
         self.model = None
         self.lstm_files = LSTMFiles(data_params[0])
         self.mse = []
@@ -41,7 +42,7 @@ class LSTMNetwork:
         self.fit_model(data_params)
 
     def get_predict_learning(self):
-        inputs = self.full_data_set_scaled
+        inputs = self.train_set_scaled
         X_test = []
 
         for i in range(60, len(inputs-1)):
@@ -50,6 +51,18 @@ class LSTMNetwork:
         X_test = np.array(X_test)
         predict = self.model.predict(X_test)
 
+        test_test = []
+        for el in predict:
+            test_test.append(el[0])
+        test_test = np.array(test_test)
+        test_test = np.append(test_test, predict[-1][0])
+        predict_values = []
+        for i in range(self.data_len-self.train_len):
+            prediction = self.model.predict(np.array([test_test]))
+            test_test = np.append(test_test, prediction[-1][0])
+            predict_values.append(prediction[-1])
+
+        predict = np.concatenate((predict, predict_values))
         predicted = self.scaler.inverse_transform(predict)
         predicts = []
         for el in predicted:
@@ -62,21 +75,23 @@ class LSTMNetwork:
         return preds
 
     def get_forecast_learning(self):
-        inputs = self.data_set_scaled[-60:]
+        inputs = self.train_set_scaled[-60:]
+
         X_test = []
         for el in inputs:
             X_test.append(el[0])
+
         X_test = [X_test]
         predicted_values = []
         for i in range(self.steps):
-            predict = self.model.predict(np.array([X_test[i]]))
-            predicted_values.append(predict[0])
+            predict = self.model.predict(np.array(X_test))
+            predicted_values.append(predict[-1])
             X_test.append(X_test[i][1:60])
-            X_test[i+1][-1] = predict[0][0]
+            X_test[i+1].append(predict[-1][0])
 
         predicted = self.scaler.inverse_transform(predicted_values)
 
-        values = [self.data_set.values[-1][0]]
+        values = [self.train_set.values[-1][0]]
         values.extend(predicted)
         preds = pd.DataFrame()
         preds['Close'] = values
@@ -86,21 +101,19 @@ class LSTMNetwork:
         return preds
 
     def get_forecast(self):
-        inputs = self.full_data_set_scaled[-60:]
         X_test = []
-        for el in inputs:
+        for el in self.full_data_set_scaled.tolist():
             X_test.append(el[0])
-        X_test = [X_test]
         predicted_values = []
         for i in range(self.steps):
-            predict = self.model.predict(np.array([X_test[i]]))
-            predicted_values.append(predict[0])
-            X_test.append(X_test[i][1:60])
-            X_test[i+1][-1] = predict[0][0]
+            predict = self.model.predict(np.array([X_test]))
+            print(predict)
+            predicted_values.append(predict[-1])
+            X_test.append(predict[-1][0])
 
         predicted = self.scaler.inverse_transform(predicted_values)
 
-        values = [self.data_set.values[-1][0]]
+        values = [self.train_set.values[-1][0]]
         values.extend(predicted)
         preds = pd.DataFrame()
         preds['Close'] = values
@@ -115,7 +128,7 @@ class LSTMNetwork:
         X_train, y_train = self.get_model(data_params)
         if self.model is None:
             self.model = self.create_model(X_train)
-            self.model.fit(X_train, y_train, epochs=70, batch_size=32)
+            self.model.fit(X_train, y_train, epochs=100, batch_size=100)
         self.lstm_files.create_file(self.model, data_params[1], data_params[2])
 
     def get_model(self, data_params):
@@ -127,22 +140,23 @@ class LSTMNetwork:
 
 
     def create_model(self, X_train):
+        myOpt = keras.optimizers.SGD(learning_rate=0.1, momentum=0.0, nesterov=True)
         self.model = Sequential()
-        self.model.add(LSTM(units=60, input_shape=(X_train.shape[1], 1), return_sequences=True))
+        self.model.add(LSTM(units=200, activation='relu', input_shape=(X_train.shape[1], 1), return_sequences=True))
         self.model.add(Dropout(0.2))
-        self.model.add(LSTM(units=60))
+        self.model.add(LSTM(units=100, activation='relu', input_shape=(X_train.shape[1], 1)))
         self.model.add(Dropout(0.2))
-        self.model.add(Dense(units=1))
-        self.model.compile(optimizer='adam', loss='mean_squared_error')
+        self.model.add(Dense(1))
+        self.model.compile(optimizer=myOpt, loss='mean_squared_error')
         return self.model
 
     def create_x_y(self):
         X_train = []
         y_train = []
 
-        for i in range(60, self.train_len):
-            X_train.append(self.data_set_scaled[i-60:i, 0])
-            y_train.append(self.data_set_scaled[i][0])
+        for i in range(60, self.data_len):
+            X_train.append(self.full_data_set_scaled[i-60:i, 0])
+            y_train.append(self.full_data_set_scaled[i][0])
         X_train, y_train = np.array(X_train), np.array(y_train)
         # X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
         return X_train, y_train
